@@ -1,0 +1,28 @@
+# validates the script's date corresponds to the current month.
+# For example, having a script V20200604 when it's July should be invalid
+
+name: SQL files name checker
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Validate date
+        run: |
+             pr_num=$(jq -r .pull_request.number "$GITHUB_EVENT_PATH")
+             current_month=$(date '+%m')
+
+             GITHUB_API_URI="https://api.github.com"
+             GITHUB_API_HEADER="Accept: application/vnd.github.v3+json"
+             body=$(curl -sSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "$GITHUB_API_HEADER" "$GITHUB_API_URI/repos/$GITHUB_REPOSITORY/pulls/$pr_num/files")
+             echo "$body" | jq -r '.[] | select(.filename|test("V2.")) | .filename' | grep --color=never -oE V....... | cut -b 6-7 | while read -r month ; do
+               echo "Current month: $current_month"
+               echo "Script month: $month"
+               if [[ "$current_month" -ne "$month" ]]; then
+                 echo "ERROR: SQL script month doesn't correspond to current month!"
+                 exit 1
+               fi
+             done
